@@ -4,6 +4,7 @@
 # https://docs.scrapy.org/en/latest/topics/spider-middleware.html
 
 import os
+import subprocess
 from scrapy import signals
 from twisted.internet.threads import deferToThread
 
@@ -55,6 +56,7 @@ class MoegirlSpiderMiddleware:
             yield r
 
     def spider_opened(self, spider):
+        print("spider_opened")
         cache_dir = os.path.expanduser("~/.cache/ms-playwright")
         if not os.path.isdir(cache_dir):
             spider.logger.info("检测到 Playwright 浏览器未安装，开始安装…")

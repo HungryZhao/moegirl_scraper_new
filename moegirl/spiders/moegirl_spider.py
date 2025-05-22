@@ -1,3 +1,4 @@
+import time
 import scrapy
 from moegirl.items import CategoryItem, ArticleItem
 from urllib.parse import urlparse, parse_qs
@@ -20,6 +21,8 @@ class MoegirlSpider(scrapy.Spider):
     }
 
     def start_requests(self):
+        self.logger.info("🔔 延迟 60 秒后再开始爬取…")
+        time.sleep(60)
         # 所有请求都启用 Playwright
         for url in self.start_urls:
             yield scrapy.Request(url, meta={'playwright': True}, callback=self.parse)
