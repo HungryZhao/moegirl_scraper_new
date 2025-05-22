@@ -22,7 +22,7 @@ class MoegirlSpider(scrapy.Spider):
 
     def start_requests(self):
         self.logger.info("🔔 延迟 60 秒后再开始爬取…")
-        time.sleep(60)
+        time.sleep(300)
         # 所有请求都启用 Playwright
         for url in self.start_urls:
             yield scrapy.Request(url, meta={'playwright': True}, callback=self.parse)
