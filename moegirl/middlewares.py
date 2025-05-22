@@ -3,7 +3,9 @@
 # See documentation in:
 # https://docs.scrapy.org/en/latest/topics/spider-middleware.html
 
+import os
 from scrapy import signals
+from twisted.internet.threads import deferToThread
 
 # useful for handling different item types with a single interface
 from itemadapter import is_item, ItemAdapter
@@ -53,8 +55,12 @@ class MoegirlSpiderMiddleware:
             yield r
 
     def spider_opened(self, spider):
-        spider.logger.info("Spider opened: %s" % spider.name)
-
+        cache_dir = os.path.expanduser("~/.cache/ms-playwright")
+        if not os.path.isdir(cache_dir):
+            spider.logger.info("检测到 Playwright 浏览器未安装，开始安装…")
+            # 放到线程里跑，避免阻塞 reactor
+            return deferToThread(subprocess.check_call,
+                                 ["playwright", "install", "chromium"])
 
 class MoegirlDownloaderMiddleware:
     # Not all methods need to be defined. If a method is not defined,
