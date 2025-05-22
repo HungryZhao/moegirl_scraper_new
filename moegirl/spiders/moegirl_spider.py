@@ -7,12 +7,28 @@ class MoegirlSpider(scrapy.Spider):
     allowed_domains = ['moegirl.icu']
     start_urls = ['https://moegirl.icu/index.php?title=Category:作品']
 
+    custom_settings = {
+        # 使用 scrapy-playwright 进行渲染，绕过 Cloudflare
+        'DOWNLOAD_HANDLERS': {
+            'http': 'scrapy_playwright.handler.ScrapyPlaywrightDownloadHandler',
+            'https': 'scrapy_playwright.handler.ScrapyPlaywrightDownloadHandler',
+        },
+        'TWISTED_REACTOR': 'twisted.internet.asyncioreactor.AsyncioSelectorReactor',
+        'PLAYWRIGHT_BROWSER_TYPE': 'chromium',  # 可选 'firefox' 或 'webkit'
+        'PLAYWRIGHT_LAUNCH_OPTIONS': {'headless': True},
+        'CONCURRENT_REQUESTS': 5,
+    }
+
+    def start_requests(self):
+        # 所有请求都启用 Playwright
+        for url in self.start_urls:
+            yield scrapy.Request(url, meta={'playwright': True}, callback=self.parse)
+
     def parse(self, response):
         # 从根分类开始解析
         yield from self.parse_category(response, parent=None)
 
     def parse_category(self, response, parent):
-        # 提取当前分类名称
         title = response.css('title::text').get().split(' - ')[0]
         category = CategoryItem(
             name=title,
@@ -20,42 +36,47 @@ class MoegirlSpider(scrapy.Spider):
             subcategories=[]
         )
 
-        # 解析并调度子分类
-        subcat_links = response.css('#mw-subcategories .mw-content-ltr a')
-        subcats = []
-        for a in subcat_links:
+        # 解析子分类
+        for a in response.css('#mw-subcategories .mw-content-ltr a'):
             name = a.css('::text').get()
             url = response.urljoin(a.attrib['href'])
-            subcats.append(name)
-            yield scrapy.Request(url, callback=self.parse_category, cb_kwargs={'parent': title})
-        category['subcategories'] = subcats
+            category['subcategories'].append(name)
+            yield scrapy.Request(url,
+                                  meta={'playwright': True},
+                                  callback=self.parse_category,
+                                  cb_kwargs={'parent': title})
 
-        # 解析词条列表并调度获取原始内容
-        page_links = response.css('#mw-pages .mw-content-ltr a')
-        for a in page_links:
+        # 解析词条列表
+        for a in response.css('#mw-pages .mw-content-ltr a'):
             href = a.attrib['href']
             raw_url = response.urljoin(href) + '&action=raw'
-            yield scrapy.Request(raw_url, callback=self.parse_article, cb_kwargs={'categories': [title]})
+            yield scrapy.Request(raw_url,
+                                  meta={'playwright': True},
+                                  callback=self.parse_article,
+                                  cb_kwargs={'categories': [title]})
 
         # 翻页：子分类
         next_sub = response.xpath("//div[@id='mw-subcategories']//a[text()='下一页']/@href").get()
         if next_sub:
-            yield response.follow(next_sub, callback=self.parse_category, cb_kwargs={'parent': parent})
-
+            yield response.follow(next_sub,
+                                  meta={'playwright': True},
+                                  callback=self.parse_category,
+                                  cb_kwargs={'parent': parent})
         # 翻页：词条列表
         next_page = response.xpath("//div[@id='mw-pages']//a[text()='下一页']/@href").get()
         if next_page:
-            yield response.follow(next_page, callback=self.parse_category, cb_kwargs={'parent': parent})
+            yield response.follow(next_page,
+                                  meta={'playwright': True},
+                                  callback=self.parse_category,
+                                  cb_kwargs={'parent': parent})
 
         yield category
 
     def parse_article(self, response, categories):
-        # 从 URL 参数中提取词条标题
         qs = urlparse(response.url).query
         title = parse_qs(qs).get('title', [''])[0]
-        item = ArticleItem(
+        yield ArticleItem(
             title=title,
             content=response.text,
             categories=categories
         )
-        yield item

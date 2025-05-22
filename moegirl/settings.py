@@ -27,6 +27,13 @@ RETRY_ENABLED = True
 RETRY_TIMES = 10
 RETRY_HTTP_CODES = [500, 502, 503, 504, 522, 524, 403]
 
+DOWNLOADER_HANDLERS = {
+    'http': 'scrapy_playwright.handler.ScrapyPlaywrightDownloadHandler',
+    'https': 'scrapy_playwright.handler.ScrapyPlaywrightDownloadHandler',
+}
+TWISTED_REACTOR = 'twisted.internet.asyncioreactor.AsyncioSelectorReactor'
+PLAYWRIGHT_BROWSER_TYPE = 'chromium'
+
 # Configure maximum concurrent requests performed by Scrapy (default: 16)
 #CONCURRENT_REQUESTS = 32
 
